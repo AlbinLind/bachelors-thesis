@@ -1,3 +1,4 @@
+"""Benchmark code for the Ant Colony Optimisation."""
 import time
 
 import pandas as pd

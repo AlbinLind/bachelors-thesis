@@ -402,7 +402,7 @@ class TwoStageACO:
 
 if __name__ == "__main__":
     data = parse_data(
-        r"B:\Documents\Skola\UvA\Y3P6\git_folder\src\examples\data_v1_large.xlsx"
+        "examples/data_v1.xlsx"
     )
     jssp = JobShopProblem.from_data(data)
     aco = TwoStageACO(
