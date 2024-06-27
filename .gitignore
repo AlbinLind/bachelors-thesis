@@ -157,3 +157,4 @@ src/examples/~$*
 src/**/*.png
 src/benchmarks
 *.npz
+*.csv

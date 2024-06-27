@@ -11,6 +11,8 @@ DAY_MINUTES = 24 * 60
 
 
 class Job(BaseModel):
+    """Contains the information about a job that needs to be done."""
+
     available_machines: dict[int, float]
     dependencies: list[int]
     production_order_nr: str
@@ -21,6 +23,8 @@ class Job(BaseModel):
 
 
 class Machine(BaseModel):
+    """Contains information about a machine that can be used to process jobs."""
+
     name: str
     machine_id: int
     start_time: int = 0
@@ -78,6 +82,13 @@ class JobShopProblem:
         schedule: dict[int, list[tuple[int, int, int]]],
         save_path: str | None = None,
     ):
+        """Generates a visualization of the schedule.
+
+        Args:
+            schedule (dict[int, list[tuple[int, int, int]]]): the schedule that should be visualized
+            save_path (str | None, optional): path to save the visualisation, if none is give it will display it.
+                Defaults to None.
+        """
         fig, ax = plt.subplots(figsize=(18, 7))
         cmap = plt.get_cmap("tab10")
         flavour_mapping = {"cola": 0, "fanta": 1, "orange juice": 2, "apple juice": 3}
@@ -95,7 +106,9 @@ class JobShopProblem:
                     # Get hf flavour
                     to_be_plotted.append((start_time + setup_time, end_time, False))
                     if setup_time > 0:
-                        to_be_plotted.append((start_time, start_time + setup_time, True))
+                        to_be_plotted.append(
+                            (start_time, start_time + setup_time, True)
+                        )
                 else:
                     # List with tuples of (start time, end time, is setup?)
                     # Check if we need to split into multiple parts because of preemption
@@ -171,7 +184,7 @@ class JobShopProblem:
                         # "hatch": "O",
                         "facecolor": cmap(flavour_mapping[flavour]),
                         "edgecolor": "black",
-                        "label": flavour
+                        "label": flavour,
                     }
                     if current_plot[2]:
                         kwargs["hatch"] = "/"
@@ -179,6 +192,13 @@ class JobShopProblem:
                         kwargs["facecolor"] = "gray"
                         kwargs["label"] = "setup"
                     elif self.machines[machine].name[0] == "B":
+                        color = "white"
+                        if (
+                            end_time
+                            - (self.jobs[job_id].days_till_delivery + 1) * 24 * 60
+                            > 0
+                        ):
+                            color = "red"
                         ax.text(
                             (current_plot[0] + current_plot[1]) / 2,
                             i,
@@ -186,14 +206,16 @@ class JobShopProblem:
                             va="center",
                             ha="center",
                             fontsize=21,
-                            color="white",
+                            color=color,
                         )
                     ax.broken_barh(
                         [(current_plot[0], current_plot[1] - current_plot[0])],
                         (i - 0.25, 0.5),
                         **kwargs,
                     )
-        max_time = max([schedule[machine.machine_id][-1][2] for machine in self.machines])
+        max_time = max(
+            [schedule[machine.machine_id][-1][2] for machine in self.machines]
+        )
         for machine in self.machines:
             x_lines_start = np.arange(machine.start_time, max_time, 24 * 60)
             plt.vlines(
@@ -211,7 +233,7 @@ class JobShopProblem:
                 linestyles="dashed",
                 color="red",
             )
-        
+
         # Add legend
         handles, labels = ax.get_legend_handles_labels()
         by_label = dict(zip(labels, handles))
@@ -247,7 +269,6 @@ class JobShopProblem:
         else:
             plt.show()
 
-    
     def old_visualize_schedule(
         self,
         schedule: dict[int, list[tuple[int, int, int]]],
@@ -329,7 +350,7 @@ class JobShopProblem:
         day_markers = np.arange(0, max_time, 24 * 60)
         day_labels = [f"{d//24//60}" for d in day_markers]
 
-        # plt.xticks(ticks=np.concatenate([day_markers]), labels=day_labels)
+        plt.xticks(ticks=np.concatenate([day_markers]), labels=day_labels)
         plt.yticks(
             ticks=np.arange(1, len(schedule) + 1),
             labels=[str(self.machines[m].name) for m in schedule.keys()],
@@ -498,6 +519,8 @@ class JobShopProblem:
         self, job_order: list[int], machine_assignment: list[int]
     ) -> schedule_type:
         """Create a schedule based on a given job order and machine assignment.
+        It is advised to not use this function, but rather use the `make_schedule_from_parallel`
+        or `make_schedule_from_parallel_with_stock`.
 
         Note that the job_order is relative, and machine_assignment is absolute. That means that
         the machine_assignment have at index i the machine assignment for job i. While the job_order
@@ -584,6 +607,19 @@ class JobShopProblem:
     def make_schedule_from_parallel(
         self, job_orders: list[list[int]] | np.ndarray
     ) -> schedule_type:
+        """Generates a schedule based on a parallel job order. This function takes
+        into account the internal precedence constraints of the jobs. That means no
+        job will be scheduled before its dependencies.
+
+        Args:
+            job_orders (list[list[int]] | np.ndarray): job orders for each machine
+
+        Raises:
+            ScheduleError: raised if the job order is incorrect
+
+        Returns:
+            schedule_type: generated schedule
+        """
         schedule: dict[int, list[tuple[int, int, int]]] = {
             m.machine_id: [(-1, 0, m.start_time)] for m in self.machines
         }
@@ -664,6 +700,20 @@ class JobShopProblem:
         start_time: float,
         task_duration: float,
     ) -> tuple[int, int]:
+        """Calculate the start and end time of a task based on the machine settings.
+
+        This function takes into account if the machine allows for preemption, and if the task can be done in one day etc.
+
+        Args:
+            machine_allow_preemption (bool): if the machine allows for preemption
+            machine_start_time (int): start time of operating hours
+            machine_end_time (int): end time of operating hours
+            start_time (float): job start time
+            task_duration (float): total duration of the task
+
+        Returns:
+            tuple[int, int]: (start_time, end_time)
+        """
         start_time_remainder = start_time % DAY_MINUTES
         if start_time_remainder < machine_start_time:
             start_time = machine_start_time + (start_time // DAY_MINUTES) * DAY_MINUTES
@@ -686,6 +736,17 @@ class JobShopProblem:
     def make_schedule_from_parallel_with_stock(
         self, job_orders: np.ndarray | list[list[int]]
     ) -> schedule_type:
+        """Generate a schedule based on a parallel job order with stock.
+
+        Args:
+            job_orders (np.ndarray | list[list[int]]): job orders for each machine
+
+        Raises:
+            ScheduleError: if the stock is not enough to produce the product
+
+        Returns:
+            schedule_type: generated schedule
+        """
         if isinstance(job_orders, list):
             max_length = max([len(j) for j in job_orders])
             job_orders = np.array(
@@ -872,11 +933,20 @@ class JobShopProblem:
 
         tardiness = 0
         for lateness in production_order_lateness.values():
-            if any([l > 0 for l in lateness]):
+            if any([l > 0 for l in lateness]):  # noqa: E741
                 tardiness += np.max(lateness) * len(lateness)
         return int(tardiness)
 
     def classical_tardiness(self, schedule: schedule_type) -> float:
+        """Calculates the classical tardiness of the schedule. I.e. the sum in minutes
+        since the job was supposed to be done.
+
+        Args:
+            schedule (schedule_type): _description_
+
+        Returns:
+            float: _description_
+        """
         return sum(
             [
                 max(
@@ -905,27 +975,40 @@ class JobShopProblem:
         return setup_time
 
     def custom_objective(self, schedule: schedule_type) -> float:
+        """Calculate the custom objective function of the schedule.
+
+        Args:
+            schedule (schedule_type): schedule to be evaluated
+
+        Returns:
+            float: result of the evaluation
+        """
         tardiness = self.boolean_tardiness(schedule)
         total_setup_time = self.total_setup_time(schedule)
         makespan = self.makespan(schedule)
         if self.LOW_TARDINESS is None:
             # Normal
-            self.LOW_TARDINESS = 8.0
+            # self.LOW_TARDINESS = 8.0
 
             # Small
             # self.LOW_TARDINESS = 0.1
+
+            # Unkown means we will take 60% of the total tardiness
+            self.LOW_TARDINESS = 0.6 * tardiness
         if self.LOW_TOTAL_SETUP_TIME is None:
             # Normal
-            self.LOW_TOTAL_SETUP_TIME = 95.0
+            # self.LOW_TOTAL_SETUP_TIME = 95.0
 
             # Small
             # self.LOW_TOTAL_SETUP_TIME = 35.0
+            self.LOW_TOTAL_SETUP_TIME = 0.6 * total_setup_time
         if self.LOW_MAKESPAN is None:
             # Normal
-            self.LOW_MAKESPAN = 3502.0
+            # self.LOW_MAKESPAN = 3502.0
 
             # Small
             # self.LOW_MAKESPAN = 2279.0
+            self.LOW_MAKESPAN = 0.6 * makespan
 
         return (
             (tardiness - self.LOW_TARDINESS) / self.LOW_TARDINESS
@@ -934,6 +1017,15 @@ class JobShopProblem:
         )
 
     def boolean_tardiness(self, schedule: schedule_type) -> int:
+        """Calculates the total number of days that a production order is late (includes all
+        orders even if some are done on time).
+
+        Args:
+            schedule (schedule_type): schedule to be evaluated
+
+        Returns:
+            int: result of the evaluation
+        """
         production_order_lateness = {
             order.production_order_nr: [] for order in self.data.production_orders
         }
@@ -951,12 +1043,20 @@ class JobShopProblem:
 
         tardiness = 0
         for lateness in production_order_lateness.values():
-            bool_lateness = [l > 0 for l in lateness]
+            bool_lateness = [l > 0 for l in lateness]  # noqa: E741
             if any(bool_lateness):
                 tardiness += (max(lateness) // DAY_MINUTES + 1) * len(lateness)
         return tardiness
 
     def generate_output(self, schedule: schedule_type | np.ndarray) -> pd.DataFrame:
+        """Generat the output of the schedule in a standard format.
+
+        Args:
+            schedule (schedule_type | np.ndarray): either a generated schedule or a matrix with the job order
+
+        Returns:
+            pd.DataFrame: contains the workstation, product_id and amount of each job
+        """
         info = {"workstation": [], "product_id": [], "amount": []}
         if isinstance(schedule, np.ndarray):
             schedule = self.make_schedule_from_parallel_with_stock(schedule)
@@ -966,7 +1066,10 @@ class JobShopProblem:
                     continue
                 info["workstation"].append(self.machines[machine].name)
                 production_order_nr = self.jobs[task[0]].production_order_nr
-                product_id = self.data.production_orders_df[self.data.production_orders_df["production_order_nr"] == production_order_nr]["product_id"].values[0]
+                product_id = self.data.production_orders_df[
+                    self.data.production_orders_df["production_order_nr"]
+                    == production_order_nr
+                ]["product_id"].values[0]
                 # If we have a mixing line we need the hf product id
                 if self.machines[machine].name[0] == "M":
                     product_id = self.data.bill_of_materials[product_id].component_id

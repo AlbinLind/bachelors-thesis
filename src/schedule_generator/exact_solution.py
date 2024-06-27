@@ -16,7 +16,9 @@ logger.addHandler(ch)
 H = 10e3
 
 
-def generate_model(jssp: JobShopProblem, tardiness_objective: bool = True) -> pyo.ConcreteModel:
+def generate_model(
+    jssp: JobShopProblem, tardiness_objective: bool = True
+) -> pyo.ConcreteModel:
     """Generates a pyomo model for the job shop scheduling problem.
 
     The model can either minimize the sum of tardiness or the makespan.
@@ -241,7 +243,10 @@ def solve_model(model: pyo.ConcreteModel, time_limit: int | None = None):
     if res.solver.status != pyo.SolverStatus.ok:
         print("Check solver not ok...")
         raise Exception("Solver not ok")
-    if res.solver.termination_condition != pyo.TerminationCondition.optimal and not time_limit:
+    if (
+        res.solver.termination_condition != pyo.TerminationCondition.optimal
+        and not time_limit
+    ):
         print("Could not find optimal solution, probably infeasible...")
         log_infeasible_constraints(
             model, logger=logger, log_expression=True, log_variables=True
@@ -297,7 +302,7 @@ if __name__ == "__main__":
     print("Model generated...")
     print("Solving model...")
     start_time = time.time()
-    solve_model(model, time_limit=3*60*60)
+    solve_model(model, time_limit=3 * 60 * 60)
     end_time = time.time()
     print("Model solved...")
     sc = get_schedule(model, jssp)
