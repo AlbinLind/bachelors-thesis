@@ -237,6 +237,10 @@ def generate_model(
 
 
 def solve_model(model: pyo.ConcreteModel, time_limit: int | None = None):
+    """Solve a generated pyomo model. Please have CPLEX downloaded on your system.
+
+    This function has to be modified if a solve different from CPLEX is to be used.
+    """
     solver = pyo.SolverFactory("cplex")
     solver.options["timelimit"] = time_limit
     res = solver.solve(model, tee=True)
@@ -257,6 +261,10 @@ def solve_model(model: pyo.ConcreteModel, time_limit: int | None = None):
 
 @typing.no_type_check
 def get_schedule(model: pyo.ConcreteModel, jssp: JobShopProblem) -> schedule_type:
+    """Generate a schedule from the *solved* model.
+
+    This function uses the start time from the solved model.
+    """
     job_start_times: dict[int, float] = {j: model.t[j].value for j in model.jobs}
     schedule: schedule_type = {
         m: [(-1, 0, jssp.machines[m].start_time)] for m in model.machines
