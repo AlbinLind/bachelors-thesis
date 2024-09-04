@@ -320,6 +320,7 @@ class TwoStageACO:
             float: the objective value of the schedule.
         """
         schedule, machine_assignment = self.run_ant()
+        print(schedule)
         objective_value = self.evaluate(schedule)
         if self.with_local_search:
             schedule = self.local_search(schedule, machine_assignment, objective_value)
