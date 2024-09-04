@@ -253,7 +253,24 @@ def run_benchmark_local_search():
     pd.DataFrame(info).to_csv("benchmark_results_local_search_large.csv", index=False)
 
 
+def run_benchmark_normal_schedule():
+    medium_data = parse_data("examples/data_v1.xlsx")
+    aco = TwoStageACO(
+        JobShopProblem.from_data(medium_data),
+        objective_function=ObjectiveFunction.MAKESPAN,
+        n_ants=100,
+        tau_zero= 1.0 / 3500,
+        n_iter=5000,
+        seed=100,
+        with_local_search=True,
+        verbose=True,
+    )
+    aco.run()
+    print(aco.best_solution[0])
+
+
 if __name__ == "__main__":
     # run_benchmark()
     # run_benchmark_custom_objectives()
-    run_benchmark_local_search()
+    # run_benchmark_local_search()
+    run_benchmark_normal_schedule()
