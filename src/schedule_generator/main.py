@@ -45,7 +45,7 @@ class JobShopProblem:
     LOW_TOTAL_SETUP_TIME = None
     LOW_MAKESPAN = None
 
-    def __init__(self, data: Data, jobs: list[Job], machines: list[Machine]) -> None:
+    def __init__(self, *, data: Data = Data.empty(), jobs: list[Job], machines: list[Machine]) -> None:
         self.data: Data = data
         self.jobs: list[Job] = jobs
         self.machines: list[Machine] = machines
