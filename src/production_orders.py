@@ -1,3 +1,4 @@
+from typing import Self
 from pydantic import BaseModel, ConfigDict, Field
 import pandas as pd
 import datetime
@@ -51,6 +52,19 @@ class Data(BaseModel):
     products_df: pd.DataFrame
     bill_of_materials_df: pd.DataFrame
     production_orders_df: pd.DataFrame
+
+    @classmethod
+    def empty(cls) -> Self:
+        return cls(
+            workstations=[],
+            products={},
+            bill_of_materials={},
+            production_orders=[],
+            workstation_df=pd.DataFrame(),
+            products_df=pd.DataFrame(),
+            bill_of_materials_df=pd.DataFrame(),
+            production_orders_df=pd.DataFrame(),
+        )
 
 
 def parse_data(path: str) -> Data:
