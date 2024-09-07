@@ -176,42 +176,42 @@ class OneStageACO(TwoStageACO):
         
 
     def run_ant(self) -> tuple[np.ndarray, dict[int, set[int]]]:
-            """Run the ant and return the job order and machine assignment.
+        """Run the ant and return the job order and machine assignment.
 
-            Returns:
-                tuple[np.ndarray, dict[int, set[int]]]: job order and machine assignment.
-            """
-            machine_assignment = self.machine_assignment_set
-            
-            all_jobs_assigned = set()
+        Returns:
+            tuple[np.ndarray, dict[int, set[int]]]: job order and machine assignment.
+        """
+        machine_assignment = self.machine_assignment_set
+        
+        all_jobs_assigned = set()
 
-            job_order = list()
+        job_order = list()
 
-            for _ in range(len(self.problem.jobs)):
-                jobs_to_schedule = {
-                    idx for idx, job in enumerate(self.problem.jobs) if set(job.dependencies).issubset(all_jobs_assigned)
-                }.difference(all_jobs_assigned)
-                if len(jobs_to_schedule) == 0:
-                    raise ScheduleError("No job can be scheduled, even though jobs are left")
-                job_idx = self.draw_job_to_schedule(
-                    jobs_to_schedule=jobs_to_schedule,
-                    last=job_order[-1] if len(job_order) > 0 else -1,
-                )
-                job_order.append(job_idx)
-                all_jobs_assigned.add(job_idx)
-            
+        for _ in range(len(self.problem.jobs)):
+            jobs_to_schedule = {
+                idx for idx, job in enumerate(self.problem.jobs) if set(job.dependencies).issubset(all_jobs_assigned)
+            }.difference(all_jobs_assigned)
+            if len(jobs_to_schedule) == 0:
+                raise ScheduleError("No job can be scheduled, even though jobs are left")
+            job_idx = self.draw_job_to_schedule(
+                jobs_to_schedule=jobs_to_schedule,
+                last=job_order[-1] if len(job_order) > 0 else -1,
+            )
+            job_order.append(job_idx)
+            all_jobs_assigned.add(job_idx)
+        
 
-            schedules = np.ones((len(self.problem.machines), len(self.problem.jobs)), dtype=int) * - 2
-            # First column is -1
-            schedules[:,0] = -1
-            # Move from the linear schedule to the parallel schedule
-            # The parallel schedule is a matrix where each row is a machine and each column is a job
-            for job in job_order:
-                machine = self.machine_assignment[job]
-                idx = np.where(schedules[machine] == -2)[0][0]
-                schedules[machine, idx] = job
-            
-            return schedules, machine_assignment
+        schedules = np.ones((len(self.problem.machines), len(self.problem.jobs)), dtype=int) * - 2
+        # First column is -1
+        schedules[:,0] = -1
+        # Move from the linear schedule to the parallel schedule
+        # The parallel schedule is a matrix where each row is a machine and each column is a job
+        for job in job_order:
+            machine = self.machine_assignment[job]
+            idx = np.where(schedules[machine] == -2)[0][0]
+            schedules[machine, idx] = job
+        
+        return schedules, machine_assignment
 
 if __name__ == "__main__":
     problem = load_standard_data(r"B:\Documents\Skola\UvA\Y3P6\dev\src\examples\dmu60.txt")
@@ -219,9 +219,9 @@ if __name__ == "__main__":
         problem=problem,
         seed=34553,
         n_iter=1000,
-        n_ants=36,
+        n_ants=300,
         tau_zero=1.0/4300.,
-        q_zero=0.0,
+        q_zero=0.5,
         objective_function=ObjectiveFunction.MAKESPAN,
         verbose=True,
         with_local_search=False,
