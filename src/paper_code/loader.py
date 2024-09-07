@@ -15,6 +15,7 @@ are to be visited by that job is 2,3,1. The instance would be presented as:
 """
 
 from numpy import ndarray
+import numpy as np
 from src.production_orders import Data
 from src.schedule_generator.ant_colony_optimisation import TwoStageACO
 from src.schedule_generator.main import Job, Machine, JobShopProblem, ObjectiveFunction, ScheduleError, schedule_type
@@ -30,26 +31,29 @@ class SimpleJobShopProblem(JobShopProblem):
             m.machine_id: [(-1, 0, m.start_time)] for m in self.machines
         }
         job_schedule: dict[int, tuple[int, int, int]] = dict()
-        
+
         # Choose the job that has the lowest index in the job_orders list, with modulo n_jobs
         current_index = [0 for _ in range(len(self.machines))]
-        current_jobs = job_orders[:,current_index][:,1]
+        current_jobs = job_orders[:,current_index].diagonal()
 
-        while all(current_jobs != -2):
-            current_jobs = job_orders[:,current_index][:,1]
-            for idx, col in enumerate(current_index):
-                if col == -1:
-                    current_index[idx] += 1
-                if col == -2:
-                    continue
+        for idx, j in enumerate(current_jobs):
+            if j == -1:
+                current_index[idx] += 1
+        current_jobs = job_orders[:,current_index].diagonal()
+
+        while not np.all(current_jobs == -2):
             # Get machine index modulo n_jobs
-            available_jobs = current_jobs % self.number_of_tasks
+            available_jobs = current_jobs % (self.number_of_tasks)
+            available_jobs[current_jobs == -2] = len(self.jobs) + 1
             
-            # Replace -2 with total_jobs - 1
-            available_jobs[available_jobs == -2] = self.number_of_tasks - 1
-            print(available_jobs)
+            print(f"{current_jobs=}, {current_index=}, {available_jobs=}, {self.number_of_tasks=}")
             # Get the job index with the lowest index
-            machine_idx = int(available_jobs.argmin())
+            lowest_indecies = np.where(available_jobs == available_jobs.min())
+            lowest_index = lowest_indecies[0][0]
+            if len(lowest_indecies[0]) > 1:
+                lowest_index = np.array(current_index)[lowest_indecies].argmin()
+
+            machine_idx = int(lowest_index)
             job_id = int(current_jobs[machine_idx])
             assert job_id not in [-1, -2], "Job id should never be -1 or -2 at this point."
 
@@ -83,7 +87,11 @@ class SimpleJobShopProblem(JobShopProblem):
             schedule[machine_idx].append((job_id, start_time, end_time))
             job_schedule[job_id] = (machine_idx, start_time, end_time)
 
+            # Increase current index
+            current_index[machine_idx] += 1
+            current_jobs = job_orders[:,current_index].diagonal()
 
+        print(schedule)
         return schedule
 
 def load_standard_data(file_path):
@@ -113,16 +121,19 @@ def load_standard_data(file_path):
             )
             for i in range(n_machines)
         ]
-        jssp = SimpleJobShopProblem(jobs=jobs, machines=machines, number_of_tasks=len(jobs) % n_jobs)
+        print(len(jobs))
+        jssp = SimpleJobShopProblem(jobs=jobs, machines=machines, number_of_tasks=len(jobs) // n_jobs)
         return jssp
 
 
 if __name__ == "__main__":
-    problem = load_standard_data(r"B:\Documents\Skola\UvA\Y3P6\git_folder\src\examples\mini.txt")
+    problem = load_standard_data(r"B:\Documents\Skola\UvA\Y3P6\dev\src\examples\mini.txt")
     aco = TwoStageACO(
         problem=problem,
-        n_ants=10,
+        n_iter=1,
+        n_ants=1,
         objective_function=ObjectiveFunction.MAKESPAN,
         verbose=True,
+        with_local_search=False,
     )
     aco.run()
