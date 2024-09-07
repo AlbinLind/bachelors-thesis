@@ -305,7 +305,7 @@ class TwoStageACO:
                 jobs_to_schedule = machine_assignment[machine].difference(jobs_assigned)
 
                 jobs_to_schedule = {
-                    job for job in jobs_to_schedule if len(set(self.problem.jobs[job].dependencies).intersection(jobs_to_schedule)) == 0
+                    job for job in jobs_to_schedule if set(self.problem.jobs[job].dependencies).intersection(machine_assignment[machine]).issubset(jobs_assigned)
                 }
 
                 job_idx = self.draw_job_to_schedule(
@@ -324,7 +324,6 @@ class TwoStageACO:
             float: the objective value of the schedule.
         """
         schedule, machine_assignment = self.run_ant()
-        print(schedule)
         objective_value = self.evaluate(schedule)
         if self.with_local_search:
             schedule = self.local_search(schedule, machine_assignment, objective_value)
