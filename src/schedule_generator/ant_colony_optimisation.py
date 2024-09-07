@@ -302,10 +302,14 @@ class TwoStageACO:
             schedules[machine, 0] = -1
             jobs_assigned = set()
             for i in range(len(machine_assignment[machine])):
+                jobs_to_schedule = machine_assignment[machine].difference(jobs_assigned)
+
+                jobs_to_schedule = {
+                    job for job in jobs_to_schedule if len(set(self.problem.jobs[job].dependencies).intersection(jobs_to_schedule)) == 0
+                }
+
                 job_idx = self.draw_job_to_schedule(
-                    jobs_to_schedule=machine_assignment[machine].difference(
-                        jobs_assigned
-                    ),
+                    jobs_to_schedule=jobs_to_schedule,
                     last=schedules[machine][i],
                     machine=machine,
                 )
