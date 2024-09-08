@@ -169,14 +169,14 @@ class TwoStageACO:
                     continue
                 # Update stage two
                 last_job_idx = order[idx - 1]
-                self.pheromones_stage_two[last_job_idx, job_idx, m_idx] = (
+                self.pheromones_stage_two[last_job_idx, job_idx, m_idx] += (
                     self.alpha * inverse_best_value
                 )
                 # If the job index is -1 then we have reached the first ficticious job.
                 if job_idx == -1:
                     continue
                 # Update stage one
-                self.pheromones_stage_one[job_idx, m_idx] = (
+                self.pheromones_stage_one[job_idx, m_idx] += (
                     self.alpha * inverse_best_value
                 )
 
