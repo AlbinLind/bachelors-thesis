@@ -14,8 +14,8 @@ are to be visited by that job is 2,3,1. The instance would be presented as:
 1	6	2	7	0	5
 """
 
+from re import M
 import matplotlib.pyplot as plt
-from platform import machine
 from numpy import ndarray
 import numpy as np
 from src.production_orders import Data
@@ -151,8 +151,9 @@ class OneStageACO(TwoStageACO):
         # We assume that each job can only be assigned to one machine
         self.machine_assignment_set = {i: {idx for idx, j in enumerate(self.problem.jobs) if j.available_machines.get(i, None) is not None} for i in range(len(self.problem.machines))}
         self.machine_assignment = [list(i.available_machines.keys())[0] for i in self.problem.jobs]
+        # self.pheromones_stage_two = np.ones((len(self.problem.jobs), len(self.problem.jobs), 1)) * self.tau_zero
 
-    def draw_job_to_schedule(self, jobs_to_schedule: set[int], last: int, machine: int | None = None) -> int:
+    def draw_job_to_schedule(self, jobs_to_schedule: set[int], last: int, machine: int) -> int:
         jobs_to_schedule_list = list(jobs_to_schedule)
         if len(jobs_to_schedule_list) == 1:
             return jobs_to_schedule_list[0]
@@ -160,9 +161,9 @@ class OneStageACO(TwoStageACO):
         probabilites = np.zeros(len(jobs_to_schedule_list))
         denominator = 0.
         for idx, job in enumerate(jobs_to_schedule_list):
-            tau_r_s = self.pheromones_stage_two[last, job, 0]
-            eta_r_s = 1. / self.problem.jobs[job].available_machines[self.machine_assignment[job]]
-            probabilites[idx] = tau_r_s * eta_r_s
+            tau_r_s = self.pheromones_stage_two[last, job, machine]
+            eta_r_s = 1. / self.problem.jobs[job].available_machines[machine]
+            probabilites[idx] = tau_r_s * eta_r_s ** self.beta
             denominator += probabilites[idx]
 
         # The pseudo-random number is used to determine if we should exploit or explore.
@@ -185,48 +186,52 @@ class OneStageACO(TwoStageACO):
         
         all_jobs_assigned = set()
 
-        job_order = list()
+        # job_order = list()
+        schedules = np.ones((len(self.problem.machines), len(self.problem.jobs)), dtype=int) * - 2
+        schedules[:,0] = -1
 
         for _ in range(len(self.problem.jobs)):
             jobs_to_schedule = {
                 idx for idx, job in enumerate(self.problem.jobs) if set(job.dependencies).issubset(all_jobs_assigned)
             }.difference(all_jobs_assigned)
             if len(jobs_to_schedule) == 0:
+                print(all_jobs_assigned)
                 raise ScheduleError("No job can be scheduled, even though jobs are left")
+            # Choose a machine
+            machines_to_choose_from = {self.machine_assignment[job] for job in jobs_to_schedule}
+            machine = select_random_item(list(machines_to_choose_from))
+            jobs_to_schedule = {job for job in jobs_to_schedule if self.machine_assignment[job] == machine}
             job_idx = self.draw_job_to_schedule(
                 jobs_to_schedule=jobs_to_schedule,
-                last=job_order[-1] if len(job_order) > 0 else -1,
+                last=schedules[machine, np.argmin(schedules[machine] - 1)],
+                machine=machine
             )
-            job_order.append(job_idx)
             all_jobs_assigned.add(job_idx)
-        
-
-        schedules = np.ones((len(self.problem.machines), len(self.problem.jobs)), dtype=int) * - 2
-        # First column is -1
-        schedules[:,0] = -1
-        # Move from the linear schedule to the parallel schedule
-        # The parallel schedule is a matrix where each row is a machine and each column is a job
-        for job in job_order:
-            machine = self.machine_assignment[job]
-            idx = np.where(schedules[machine] == -2)[0][0]
-            schedules[machine, idx] = job
+            idx = np.argmin(schedules[machine])
+            schedules[machine, idx] = job_idx
         
         return schedules, machine_assignment
 
+
 if __name__ == "__main__":
-    problem = load_standard_data(r"B:\Documents\Skola\UvA\Y3P6\dev\src\examples\dmu60.txt")
+    problem = load_standard_data(r"B:\Documents\Skola\UvA\Y3P6\dev\src\examples\ft06.txt")
     aco = OneStageACO(
         problem=problem,
-        seed=34553,
-        n_iter=1000,
-        n_ants=300,
-        tau_zero=1.0/4300.,
-        q_zero=0.5,
+        seed=3980456,
+        n_iter=1_000,
+        n_ants=25,
+        beta=0.5,
+        rho=0.001,
+        alpha=0.01,
+        tau_zero=1.0/55.,
+        q_zero=0.6,
         objective_function=ObjectiveFunction.MAKESPAN,
         verbose=True,
-        with_local_search=False,
+        with_local_search=True,
     )
     aco.run()
     best_schedule = aco.problem.make_schedule_from_parallel(aco.best_solution[1])
     aco.problem.visualize_schedule(best_schedule)
+    # Show the pheromones of the second stage
+    plt.imshow(aco.pheromones_stage_two[:,:,0])
 
